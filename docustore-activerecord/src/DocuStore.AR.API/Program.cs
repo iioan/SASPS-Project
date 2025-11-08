@@ -3,16 +3,19 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();  
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+app.MapOpenApi();          // serves /openapi/v1.json (Microsoft.OpenApi pipeline)
+app.UseSwagger();          // serves /swagger/v1/swagger.json (Swashbuckle pipeline)
+app.UseSwaggerUI(c =>
 {
-    app.MapOpenApi();
-}
-
-app.UseHttpsRedirection();
+    // Point SwaggerUI to the MS OpenAPI endpoint (optional: or to /swagger/v1/swagger.json)
+    c.SwaggerEndpoint("/openapi/v1.json", "DocuStore Active Record API v1");
+    c.RoutePrefix = "active"; 
+});
 
 var summaries = new[]
 {
