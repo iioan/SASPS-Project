@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for Active Record project
+  postgres-activerecord:
+    image: postgres:16-alpine
+    container_name: docustore-ar-db
+    environment:
+      POSTGRES_USER: docustore_ar
+      POSTGRES_PASSWORD: dev_password_ar
+      POSTGRES_DB: docustore_ar_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_ar_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docustore_ar -d docustore_ar_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - docustore-network
+
+  # PostgreSQL for Repository + UoW project
+  postgres-repository:
+    image: postgres:16-alpine
+    container_name: docustore-repo-db
+    environment:
+      POSTGRES_USER: docustore_repo
+      POSTGRES_PASSWORD: dev_password_repo
+      POSTGRES_DB: docustore_repo_db
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_repo_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docustore_repo -d docustore_repo_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - docustore-network
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: docustore-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: teo.ioan12.ti@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres-activerecord
+      - postgres-repository
+    restart: unless-stopped
+    networks:
+      - docustore-network
+
+# Named volumes (persistent storage)
+volumes:
+  postgres_ar_data:
+    name: docustore_ar_data
+  postgres_repo_data:
+    name: docustore_repo_data
+  pgadmin_data:
+    name: docustore_pgadmin_data
+
+networks:
+  docustore-network:
+    name: docustore-network
+    driver: bridge
