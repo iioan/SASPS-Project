@@ -1,4 +1,4 @@
-﻿namespace Document.Application.Services;
+﻿namespace Document.Domain.Services;
 
 public interface IFileStorageService
 {

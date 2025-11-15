@@ -1,10 +1,13 @@
 ﻿using Document.Domain.Common;
+using Document.Domain.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace Document.Domain.Entities;
 
-public class DocumentEntity : BaseEntity
+public class DocumentEntity : ActiveRecordBase
 {
+    private const long MaxFileSizeInBytes = 20 * 1024 * 1024; // 20MB
+
     public string Title { get; private set; } = string.Empty;
     public string? Description { get; private set; }
     public string FileName { get; private set; } = string.Empty;
@@ -15,67 +18,164 @@ public class DocumentEntity : BaseEntity
     // EF Core requires a parameterless constructor
     private DocumentEntity() { }
 
-    // Factory method for creating new documents
     public static DocumentEntity Create(
         string title,
         string? description,
         string fileName,
-        string filePathOnDisk,
-        long fileSizeInBytes,
         string contentType,
         string createdBy)
     {
+        // Validation
+        if (string.IsNullOrWhiteSpace(title))
+            throw new InvalidOperationException("Title cannot be empty or whitespace only");
+
+        if (title.Length > 200)
+            throw new InvalidOperationException("Title cannot exceed 200 characters");
+
+        if (description?.Length > 2000)
+            throw new InvalidOperationException("Description cannot exceed 2000 characters");
+
         var document = new DocumentEntity
         {
             Title = title,
             Description = description,
             FileName = fileName,
-            FilePathOnDisk = filePathOnDisk,
-            FileSizeInBytes = fileSizeInBytes,
             ContentType = contentType
         };
-        
+
         document.SetCreatedBy(createdBy);
         return document;
     }
 
-    // Active Record: Save
-    public async Task<DocumentEntity> SaveAsync(DbContext context, CancellationToken cancellationToken = default)
+    public async Task UploadAndSave(byte[] fileContent, CancellationToken cancellationToken = default)
     {
-        await context.Set<DocumentEntity>().AddAsync(this, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
-        return this;
+        // Validate file size
+        if (fileContent.Length > MaxFileSizeInBytes)
+        {
+            throw new InvalidOperationException(
+                $"File size exceeds the maximum allowed size of {MaxFileSizeInBytes / 1024 / 1024}MB");
+        }
+
+        // Get file storage service from service locator
+        var fileStorageService = GetService<IFileStorageService>();
+
+        // Save file to disk
+        FilePathOnDisk = await fileStorageService.SaveFileAsync(
+            fileContent,
+            FileName,
+            cancellationToken);
+
+        FileSizeInBytes = fileContent.Length;
+
+        // Save entity to database
+        await Save(cancellationToken);
     }
 
-    // Active Record: Update
-    public async Task UpdateAsync(DbContext context, string title, string? description, string updatedBy, CancellationToken cancellationToken = default)
+    public async Task Save(CancellationToken cancellationToken = default)
     {
+        var context = GetDbContext();
+        var dbSet = context.Set<DocumentEntity>();
+
+        // Check if entity exists in database
+        var exists = await dbSet.AnyAsync(d => d.Id == this.Id, cancellationToken);
+
+        if (exists)
+        {
+            dbSet.Update(this);
+        }
+        else
+        {
+            await dbSet.AddAsync(this, cancellationToken);
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task Update(string title, string? description, string updatedBy, CancellationToken cancellationToken = default)
+    {
+        // Validation
+        if (string.IsNullOrWhiteSpace(title))
+            throw new InvalidOperationException("Title cannot be empty or whitespace only");
+
+        if (title.Length > 200)
+            throw new InvalidOperationException("Title cannot exceed 200 characters");
+
+        if (description?.Length > 2000)
+            throw new InvalidOperationException("Description cannot exceed 2000 characters");
+
         Title = title;
         Description = description;
         SetUpdatedBy(updatedBy);
 
-        context.Set<DocumentEntity>().Update(this);
-        await context.SaveChangesAsync(cancellationToken);
+        await Save(cancellationToken);
     }
 
-    // Active Record: Delete
-    public async Task DeleteAsync(DbContext context, CancellationToken cancellationToken = default)
+    public async Task Delete(CancellationToken cancellationToken = default)
     {
+        var context = GetDbContext();
+
+        // Delete file from disk
+        var fileStorageService = GetService<IFileStorageService>();
+        await fileStorageService.DeleteFileAsync(FilePathOnDisk, cancellationToken);
+
+        // Delete from database
         context.Set<DocumentEntity>().Remove(this);
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    // Active Record: Find by ID
-    public static async Task<DocumentEntity?> FindByIdAsync(DbContext context, Guid id, CancellationToken cancellationToken = default)
+    public async Task Reload(CancellationToken cancellationToken = default)
     {
+        var context = GetDbContext();
+        await context.Entry(this).ReloadAsync(cancellationToken);
+    }
+
+    public static async Task<DocumentEntity?> Find(Guid id, CancellationToken cancellationToken = default)
+    {
+        var context = GetDbContext();
         return await context.Set<DocumentEntity>().FindAsync(new object[] { id }, cancellationToken);
     }
 
-    // Active Record: Get all
-    public static async Task<List<DocumentEntity>> GetAllAsync(DbContext context, CancellationToken cancellationToken = default)
+    public static async Task<DocumentEntity?> FindByTitle(string title, CancellationToken cancellationToken = default)
     {
+        var context = GetDbContext();
+        return await context.Set<DocumentEntity>()
+            .FirstOrDefaultAsync(d => d.Title == title, cancellationToken);
+    }
+
+    public static async Task<List<DocumentEntity>> All(CancellationToken cancellationToken = default)
+    {
+        var context = GetDbContext();
         return await context.Set<DocumentEntity>()
             .OrderByDescending(d => d.CreatedAt)
             .ToListAsync(cancellationToken);
+    }
+
+    public static async Task<List<DocumentEntity>> Where(
+        Func<DocumentEntity, bool> predicate,
+        CancellationToken cancellationToken = default)
+    {
+        var context = GetDbContext();
+        var allDocuments = await context.Set<DocumentEntity>().ToListAsync(cancellationToken);
+        return allDocuments.Where(predicate).ToList();
+    }
+
+    public static async Task<int> Count(CancellationToken cancellationToken = default)
+    {
+        var context = GetDbContext();
+        return await context.Set<DocumentEntity>().CountAsync(cancellationToken);
+    }
+
+    public static async Task<bool> Exists(Guid id, CancellationToken cancellationToken = default)
+    {
+        var context = GetDbContext();
+        return await context.Set<DocumentEntity>().AnyAsync(d => d.Id == id, cancellationToken);
+    }
+
+    public static async Task<int> DeleteAll(CancellationToken cancellationToken = default)
+    {
+        var context = GetDbContext();
+        var documents = await context.Set<DocumentEntity>().ToListAsync(cancellationToken);
+        context.Set<DocumentEntity>().RemoveRange(documents);
+        return await context.SaveChangesAsync(cancellationToken);
     }
 }

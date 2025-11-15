@@ -1,4 +1,4 @@
-﻿using Document.Application.Services;
+﻿using Document.Domain.Services;
 using Document.Infrastructure.Data;
 using Document.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -13,14 +13,17 @@ public static class DependencyInjection
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddDbContext<DocumentDbContext>(options =>
-            options.UseNpgsql(
-                configuration.GetConnectionString("DocuStoreDb"),
-                b => b.MigrationsAssembly(typeof(DocumentDbContext).Assembly.FullName)));
+        services.AddDbContext<DocumentDbContext>(
+            options =>
+                options.UseNpgsql(
+                    configuration.GetConnectionString("DocuStoreDb"),
+                    b => b.MigrationsAssembly(typeof(DocumentDbContext).Assembly.FullName)),
+            contextLifetime: ServiceLifetime.Transient,
+            optionsLifetime: ServiceLifetime.Singleton);
 
-        services.AddScoped<DbContext>(sp => sp.GetRequiredService<DocumentDbContext>());
+        services.AddTransient<DbContext>(sp => sp.GetRequiredService<DocumentDbContext>());
 
-        services.AddScoped<IFileStorageService, FileStorageService>();
+        services.AddSingleton<IFileStorageService, FileStorageService>();
 
         return services;
     }

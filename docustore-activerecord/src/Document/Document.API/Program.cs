@@ -27,27 +27,6 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// 🔥 AUTO-MIGRATE DATABASE ON STARTUP
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
-    {
-        var context = services.GetRequiredService<DocumentDbContext>();
-        
-        app.Logger.LogInformation("Starting database migration...");
-        await context.Database.MigrateAsync();
-        app.Logger.LogInformation("Database migration completed successfully!");
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating the database.");
-        throw; // Fail fast if migration fails
-    }
-}
-
-// Pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

@@ -2,6 +2,7 @@ using Document.Application;
 using Document.Infrastructure;
 using Document.Infrastructure.Data;
 using Document.API.Endpoints;
+using Document.Domain.Common;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,7 +15,6 @@ builder.Services.AddSwaggerGen(options =>
     options.SwaggerDoc("v1", new() { Title = "DocuStore API", Version = "v1" });
 });
 
-// 🔥 Add Document module layers
 builder.Services.AddDocumentApplication();
 builder.Services.AddDocumentInfrastructure(builder.Configuration);
 
@@ -30,7 +30,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// 🔥🔥🔥 AUTO-MIGRATE ALL DATABASES ON STARTUP
+ServiceLocator.Initialize(app.Services);
+
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -39,14 +40,14 @@ using (var scope = app.Services.CreateScope())
     try
     {
         // Migrate Document module
-        logger.LogInformation("🗄️  Starting Document database migration...");
+        logger.LogInformation("Starting Document database migration...");
         var documentContext = services.GetRequiredService<DocumentDbContext>();
         await documentContext.Database.MigrateAsync();
-        logger.LogInformation("✅ Document database migration completed successfully!");
+        logger.LogInformation("✅ Document database migration completed successfully!!");
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "❌ An error occurred while migrating the database.");
+        logger.LogError(ex, "An error occurred while migrating the database.");
         throw; // Fail fast if migration fails
     }
 }
