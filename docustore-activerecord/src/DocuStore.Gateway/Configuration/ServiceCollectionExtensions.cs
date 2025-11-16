@@ -1,5 +1,11 @@
 ﻿using Document.Application;
 using Document.Infrastructure;
+using MetadataIndexing.Application;
+using MetadataIndexing.Infrastructure;
+using Tagging.Application;
+using Tagging.Infrastructure;
+using Versioning.Application;
+using Versioning.Infrastructure;
 
 namespace DocuStore.Gateway.Configuration;
 
@@ -12,6 +18,15 @@ public static class ServiceCollectionExtensions
         // Add module services
         services.AddDocumentApplication();
         services.AddDocumentInfrastructure(configuration);
+        
+        services.AddMetadataIndexingApplication();
+        services.AddMetadataIndexingInfrastructure(configuration);
+        
+        services.AddTaggingApplication();
+        services.AddTaggingInfrastructure(configuration);
+
+        services.AddVersioningApplication();
+        services.AddVersioningInfrastructure(configuration);
 
         return services;
     }

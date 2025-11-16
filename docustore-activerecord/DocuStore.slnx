@@ -14,9 +14,6 @@
     <Project Path="src/MetadataIndexing/MetadataIndexing.Domain/MetadataIndexing.Domain.csproj" />
     <Project Path="src/MetadataIndexing/MetadataIndexing.Infrastructure/MetadataIndexing.Infrastructure.csproj" />
   </Folder>
-  <Folder Name="/src/Shared/">
-    <Project Path="src/Shared/Shared.Common/Shared.Common.csproj" />
-  </Folder>
   <Folder Name="/src/Tagging/">
     <Project Path="src/Tagging/Tagging.API/Tagging.API.csproj" />
     <Project Path="src/Tagging/Tagging.Application/Tagging.Application.csproj" />
