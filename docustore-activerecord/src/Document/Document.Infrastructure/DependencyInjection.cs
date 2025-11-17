@@ -1,4 +1,5 @@
-﻿using Document.Domain.Services;
+﻿using Document.Domain.Common;
+using Document.Domain.Services;
 using Document.Infrastructure.Data;
 using Document.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -21,10 +22,23 @@ public static class DependencyInjection
             contextLifetime: ServiceLifetime.Transient,
             optionsLifetime: ServiceLifetime.Singleton);
 
-        services.AddTransient<DbContext>(sp => sp.GetRequiredService<DocumentDbContext>());
+        services.AddSingleton<DocumentDbContextFactory>(sp =>
+        {
+            return () =>
+            {
+                var scope = Document.Domain.Common.ServiceLocator.CreateScope();
+                return scope.ServiceProvider.GetRequiredService<DocumentDbContext>();
+            };
+        });
 
         services.AddSingleton<IFileStorageService, FileStorageService>();
-
+        
         return services;
+    }
+
+    public static void InitializeDocumentDbContextProvider(IServiceProvider serviceProvider)
+    {
+        var contextFactory = serviceProvider.GetRequiredService<DocumentDbContextFactory>();
+        DocumentDbContextProvider.Initialize(contextFactory);
     }
 }

@@ -11,11 +11,11 @@ public abstract class ActiveRecordBase
     public string? UpdatedBy { get; protected set; }
 
     /// <summary>
-    /// Gets the DbContext from service locator
+    /// Gets the DbContext from the provider
     /// </summary>
     protected static DbContext GetDbContext()
     {
-        return ServiceLocator.GetService<DbContext>();
+        return MetadataIndexingDbContextProvider.GetContext();
     }
 
     /// <summary>

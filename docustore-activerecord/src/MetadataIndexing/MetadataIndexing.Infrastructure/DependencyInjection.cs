@@ -1,4 +1,4 @@
-﻿
+﻿using MetadataIndexing.Domain.Common;
 using MetadataIndexing.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -20,9 +20,21 @@ public static class DependencyInjection
             contextLifetime: ServiceLifetime.Transient,
             optionsLifetime: ServiceLifetime.Singleton);
 
-        services.AddTransient<DbContext>(sp => sp.GetRequiredService<MetadataIndexingDbContext>());
-
+        services.AddSingleton<MetadataIndexingDbContextFactory>(sp =>
+        {
+            return () =>
+            {
+                var scope = MetadataIndexing.Domain.Common.ServiceLocator.CreateScope();
+                return scope.ServiceProvider.GetRequiredService<MetadataIndexingDbContext>();
+            };
+        });
 
         return services;
+    }
+
+    public static void InitializeMetadataIndexingDbContextProvider(IServiceProvider serviceProvider)
+    {
+        var contextFactory = serviceProvider.GetRequiredService<MetadataIndexingDbContextFactory>();
+        MetadataIndexingDbContextProvider.Initialize(contextFactory);
     }
 }

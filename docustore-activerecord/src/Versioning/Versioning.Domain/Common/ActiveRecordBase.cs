@@ -2,7 +2,7 @@
 
 namespace Versioning.Domain.Common;
 
-public abstract class ActiveRecordBase
+public abstract class ActiveRecordBase<T> where T : class
 {
     public Guid Id { get; protected set; } = Guid.NewGuid();
     public DateTime CreatedAt { get; protected set; } = DateTime.UtcNow;
@@ -11,11 +11,11 @@ public abstract class ActiveRecordBase
     public string? UpdatedBy { get; protected set; }
 
     /// <summary>
-    /// Gets the DbContext from service locator
+    /// Gets the DbContext from the provider
     /// </summary>
     protected static DbContext GetDbContext()
     {
-        return ServiceLocator.GetService<DbContext>();
+        return VersioningDbContextProvider.GetContext();
     }
 
     /// <summary>
