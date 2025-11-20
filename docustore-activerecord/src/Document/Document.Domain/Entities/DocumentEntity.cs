@@ -2,6 +2,7 @@
 using Document.Domain.Enums;
 using Document.Domain.Services;
 using Microsoft.EntityFrameworkCore;
+using Shared.Events;
 
 namespace Document.Domain.Entities;
 
@@ -75,6 +76,18 @@ public class DocumentEntity : ActiveRecordBase
 
         // Save entity to database
         await Save(cancellationToken);
+        
+        var eventPublisher = GetService<IEventPublisher>();
+        var documentCreatedEvent = new DocumentCreatedEvent(
+            DocumentId: this.Id,
+            FileName: this.FileName,
+            FileContent: fileContent,
+            ContentType: this.ContentType,
+            CreatedBy: this.CreatedBy,
+            CreatedAt: this.CreatedAt
+        );
+    
+        await eventPublisher.PublishAsync(documentCreatedEvent, cancellationToken);
     }
 
     public async Task Save(CancellationToken cancellationToken = default)

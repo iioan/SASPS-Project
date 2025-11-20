@@ -2,6 +2,7 @@
 using Document.Infrastructure;
 using MetadataIndexing.Application;
 using MetadataIndexing.Infrastructure;
+using Shared.Events;
 using Tagging.Application;
 using Tagging.Infrastructure;
 using Versioning.Application;
@@ -27,6 +28,8 @@ public static class ServiceCollectionExtensions
 
         services.AddVersioningApplication();
         services.AddVersioningInfrastructure(configuration);
+        
+        services.AddSingleton<IEventPublisher, InMemoryEventPublisher>();
 
         return services;
     }

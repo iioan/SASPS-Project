@@ -26,7 +26,7 @@ public static class DependencyInjection
         {
             return () =>
             {
-                var scope = Document.Domain.Common.ServiceLocator.CreateScope();
+                var scope = ServiceLocator.CreateScope();
                 return scope.ServiceProvider.GetRequiredService<DocumentDbContext>();
             };
         });

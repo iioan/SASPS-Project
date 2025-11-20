@@ -1,6 +1,8 @@
 ﻿using System.Reflection;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Events;
+using Versioning.Application.EventHandlers;
 
 namespace Versioning.Application;
 
@@ -11,6 +13,7 @@ public static class DependencyInjection
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
         services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
         
+        services.AddTransient<IEventHandler<DocumentCreatedEvent>, DocumentCreatedEventHandler>();
         return services;
     }
 }
