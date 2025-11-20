@@ -3,6 +3,7 @@ using System;
 using MetadataIndexing.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MetadataIndexing.Infrastructure.Migrations
 {
     [DbContext(typeof(MetadataIndexingDbContext))]
-    partial class MetadataIndexingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251120203040_AddSearchDocumentIndex")]
+    partial class AddSearchDocumentIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
