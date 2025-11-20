@@ -2,8 +2,10 @@ using MetadataIndexing.Infrastructure.Data;
 using MetadataIndexing.Domain.Common;
 using MetadataIndexing.Domain.Services;
 using MetadataIndexing.Infrastructure.Services;
+using MetadataIndexing.Infrastructure.EventHandlers;
 using MetadataIndexing.API.Endpoints;
 using Microsoft.EntityFrameworkCore;
+using Shared.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +19,14 @@ builder.Services.AddDbContext<MetadataIndexingDbContext>(options =>
 
 // Register services
 builder.Services.AddScoped<IDocumentSearchService, DocumentSearchService>();
+
+// Register event infrastructure
+builder.Services.AddSingleton<IEventPublisher, InMemoryEventPublisher>();
+
+// Register event handlers
+builder.Services.AddScoped<IEventHandler<DocumentCreatedEvent>, DocumentCreatedEventHandler>();
+builder.Services.AddScoped<IEventHandler<DocumentUpdatedEvent>, DocumentUpdatedEventHandler>();
+builder.Services.AddScoped<IEventHandler<DocumentDeletedEvent>, DocumentDeletedEventHandler>();
 
 var app = builder.Build();
 
