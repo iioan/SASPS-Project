@@ -1,3 +1,4 @@
+using Document.API.Models;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Models;
 using Tagging.API.Models;
@@ -296,11 +297,13 @@ public static class TagEndpoints
             var response = documentIds.Select(docId => new DocumentResponse(
                 Id: docId,
                 Title: "Document Title", // Placeholder - would come from Document module
+                Description: null,
                 FileName: "file.pdf",
-                ContentType: "application/pdf",
                 FileSizeInBytes: 0,
+                ContentType: "application/pdf",
                 CreatedAt: DateTime.UtcNow,
-                CreatedBy: "system"
+                CreatedBy: "system",
+                Status: "Active"
             )).ToList();
 
             return Results.Ok(response);
@@ -358,11 +361,13 @@ public static class TagEndpoints
             var response = documentIdsWithAllTags.Select(docId => new DocumentResponse(
                 Id: docId,
                 Title: "Document Title",
+                Description: null,
                 FileName: "file.pdf",
-                ContentType: "application/pdf",
                 FileSizeInBytes: 0,
+                ContentType: "application/pdf",
                 CreatedAt: DateTime.UtcNow,
-                CreatedBy: "system"
+                CreatedBy: "system",
+                Status: "Active"
             )).ToList();
 
             return Results.Ok(response);
@@ -377,14 +382,3 @@ public static class TagEndpoints
         }
     }
 }
-
-// Placeholder for DocumentResponse - in production this would come from Document module
-public record DocumentResponse(
-    Guid Id,
-    string Title,
-    string FileName,
-    string ContentType,
-    long FileSizeInBytes,
-    DateTime CreatedAt,
-    string CreatedBy
-);

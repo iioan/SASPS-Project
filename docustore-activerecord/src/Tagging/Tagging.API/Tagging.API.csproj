@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Shared\Shared.csproj" />
+    <ProjectReference Include="..\..\Document\Document.API\Document.API.csproj" />
     <ProjectReference Include="..\Tagging.Application\Tagging.Application.csproj" />
     <ProjectReference Include="..\Tagging.Infrastructure\Tagging.Infrastructure.csproj" />
   </ItemGroup>
