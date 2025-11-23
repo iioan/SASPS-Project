@@ -1,5 +1,6 @@
+using MediatR;
 using MetadataIndexing.API.Models;
-using MetadataIndexing.Domain.Services;
+using MetadataIndexing.Application.Queries.SearchDocuments;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Models;
 
@@ -24,7 +25,7 @@ public static class SearchEndpoints
     }
 
     private static async Task<IResult> SearchDocuments(
-        [FromServices] IDocumentSearchService searchService,
+        [FromServices] IMediator mediator,
         [FromQuery] string? query,
         [FromQuery] DateTime? fromDate,
         [FromQuery] DateTime? toDate,
@@ -37,19 +38,18 @@ public static class SearchEndpoints
     {
         try
         {
-            var criteria = new SearchCriteria
-            {
-                Query = query,
-                FromDate = fromDate,
-                ToDate = toDate,
-                Creator = creator,
-                SortBy = sortBy,
-                SortDirection = sortDirection,
-                Page = page,
-                PageSize = pageSize
-            };
+            var searchQuery = new SearchDocumentsQuery(
+                Query: query,
+                FromDate: fromDate,
+                ToDate: toDate,
+                Creator: creator,
+                SortBy: sortBy,
+                SortDirection: sortDirection,
+                Page: page,
+                PageSize: pageSize
+            );
 
-            var result = await searchService.SearchAsync(criteria, cancellationToken);
+            var result = await mediator.Send(searchQuery, cancellationToken);
 
             var response = new SearchResponse(
                 Documents: result.Documents.Select(d => new SearchDocumentResponse(

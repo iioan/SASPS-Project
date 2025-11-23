@@ -1,8 +1,15 @@
-using Document.API.Models;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Models;
 using Tagging.API.Models;
-using Tagging.Domain.Entities;
+using Tagging.Application.Commands.CreateTag;
+using Tagging.Application.Commands.AddTagToDocument;
+using Tagging.Application.Commands.RemoveTagFromDocument;
+using Tagging.Application.Queries.ListTags;
+using Tagging.Application.Queries.GetDocumentTags;
+using Tagging.Application.Queries.GetDocumentsByTag;
+using Tagging.Application.Queries.GetDocumentsByTags;
+using Document.API.Models;
 
 namespace Tagging.API.Endpoints;
 
@@ -72,33 +79,24 @@ public static class TagEndpoints
     }
 
     private static async Task<IResult> CreateTag(
+        [FromServices] IMediator mediator,
         [FromBody] CreateTagRequest request,
         CancellationToken cancellationToken)
     {
         try
         {
-            // Check if tag with same name already exists (case-insensitive)
-            var existingTag = await Tag.FindByName(request.Name, cancellationToken);
-            if (existingTag != null)
-            {
-                return Results.BadRequest(new ErrorResponse(
-                    Message: $"Tag with name '{request.Name}' already exists",
-                    StatusCode: StatusCodes.Status400BadRequest
-                ));
-            }
-
-            var tag = Tag.Create(request.Name, request.Description, "system");
-            await tag.Save(cancellationToken);
+            var command = new CreateTagCommand(request.Name, request.Description, "system");
+            var tagDto = await mediator.Send(command, cancellationToken);
 
             var response = new TagResponse(
-                Id: tag.Id,
-                Name: tag.Name,
-                Description: tag.Description,
-                CreatedAt: tag.CreatedAt,
-                CreatedBy: tag.CreatedBy
+                Id: tagDto.Id,
+                Name: tagDto.Name,
+                Description: tagDto.Description,
+                CreatedAt: tagDto.CreatedAt,
+                CreatedBy: tagDto.CreatedBy
             );
 
-            return Results.Created($"/api/tags/{tag.Id}", response);
+            return Results.Created($"/api/tags/{tagDto.Id}", response);
         }
         catch (InvalidOperationException ex)
         {
@@ -118,18 +116,14 @@ public static class TagEndpoints
     }
 
     private static async Task<IResult> ListTags(
+        [FromServices] IMediator mediator,
         [FromQuery] bool includeDocumentCount,
         CancellationToken cancellationToken)
     {
         try
         {
-            var tags = await Tag.All(cancellationToken);
-            
-            Dictionary<Guid, int>? documentCounts = null;
-            if (includeDocumentCount)
-            {
-                documentCounts = await DocumentTag.GetDocumentCountsByTag(cancellationToken);
-            }
+            var query = new ListTagsQuery(includeDocumentCount);
+            var tags = await mediator.Send(query, cancellationToken);
 
             var response = tags.Select(tag => new TagResponse(
                 Id: tag.Id,
@@ -137,9 +131,7 @@ public static class TagEndpoints
                 Description: tag.Description,
                 CreatedAt: tag.CreatedAt,
                 CreatedBy: tag.CreatedBy,
-                DocumentCount: includeDocumentCount && documentCounts != null
-                    ? documentCounts.GetValueOrDefault(tag.Id, 0)
-                    : null
+                DocumentCount: tag.DocumentCount
             )).ToList();
 
             return Results.Ok(response);
@@ -155,52 +147,37 @@ public static class TagEndpoints
     }
 
     private static async Task<IResult> AddTagToDocument(
+        [FromServices] IMediator mediator,
         Guid documentId,
         [FromBody] AddTagToDocumentRequest request,
         CancellationToken cancellationToken)
     {
         try
         {
-            // Validate tag exists
-            var tagExists = await Tag.Exists(request.TagId, cancellationToken);
-            if (!tagExists)
-            {
-                return Results.NotFound(new ErrorResponse(
-                    Message: $"Tag with ID '{request.TagId}' not found",
-                    StatusCode: StatusCodes.Status404NotFound
-                ));
-            }
-
-            // Check if document exists by calling the Document module
-            // For now, we'll skip this check and assume the document exists
-            // In a real implementation, this would call the Document module API or use events
-
-            // Check if association already exists
-            var existingAssociation = await DocumentTag.FindByDocumentAndTag(documentId, request.TagId, cancellationToken);
-            if (existingAssociation != null)
-            {
-                return Results.BadRequest(new ErrorResponse(
-                    Message: "Tag is already associated with this document",
-                    StatusCode: StatusCodes.Status400BadRequest
-                ));
-            }
-
-            var documentTag = DocumentTag.Create(documentId, request.TagId, "system");
-            await documentTag.Save(cancellationToken);
-
-            // Reload to get tag information
-            var savedDocumentTag = await DocumentTag.Find(documentTag.Id, cancellationToken);
+            var command = new AddTagToDocumentCommand(documentId, request.TagId, "system");
+            var documentTagDto = await mediator.Send(command, cancellationToken);
 
             var response = new DocumentTagResponse(
-                Id: savedDocumentTag!.Id,
-                TagId: savedDocumentTag.TagId,
-                TagName: savedDocumentTag.Tag.Name,
-                TagDescription: savedDocumentTag.Tag.Description,
-                AddedAt: savedDocumentTag.CreatedAt,
-                AddedBy: savedDocumentTag.CreatedBy
+                Id: documentTagDto.Id,
+                TagId: documentTagDto.TagId,
+                TagName: documentTagDto.TagName,
+                TagDescription: documentTagDto.TagDescription,
+                AddedAt: documentTagDto.AddedAt,
+                AddedBy: documentTagDto.AddedBy
             );
 
             return Results.Created($"/api/tags/documents/{documentId}/tags/{request.TagId}", response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            var statusCode = ex.Message.Contains("not found") 
+                ? StatusCodes.Status404NotFound 
+                : StatusCodes.Status400BadRequest;
+                
+            return Results.Json(
+                new ErrorResponse(Message: ex.Message, StatusCode: statusCode),
+                statusCode: statusCode
+            );
         }
         catch (Exception ex)
         {
@@ -213,23 +190,23 @@ public static class TagEndpoints
     }
 
     private static async Task<IResult> RemoveTagFromDocument(
+        [FromServices] IMediator mediator,
         Guid documentId,
         Guid tagId,
         CancellationToken cancellationToken)
     {
         try
         {
-            var documentTag = await DocumentTag.FindByDocumentAndTag(documentId, tagId, cancellationToken);
-            if (documentTag == null)
-            {
-                return Results.NotFound(new ErrorResponse(
-                    Message: "Tag is not associated with this document",
-                    StatusCode: StatusCodes.Status404NotFound
-                ));
-            }
-
-            await documentTag.Delete(cancellationToken);
+            var command = new RemoveTagFromDocumentCommand(documentId, tagId);
+            await mediator.Send(command, cancellationToken);
             return Results.NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.NotFound(new ErrorResponse(
+                Message: ex.Message,
+                StatusCode: StatusCodes.Status404NotFound
+            ));
         }
         catch (Exception ex)
         {
@@ -242,23 +219,22 @@ public static class TagEndpoints
     }
 
     private static async Task<IResult> GetDocumentTags(
+        [FromServices] IMediator mediator,
         Guid documentId,
         CancellationToken cancellationToken)
     {
         try
         {
-            // Check if document exists - for now we'll assume it exists
-            // In production, validate against Document module
-
-            var documentTags = await DocumentTag.GetByDocument(documentId, cancellationToken);
+            var query = new GetDocumentTagsQuery(documentId);
+            var documentTags = await mediator.Send(query, cancellationToken);
 
             var response = documentTags.Select(dt => new DocumentTagResponse(
                 Id: dt.Id,
                 TagId: dt.TagId,
-                TagName: dt.Tag.Name,
-                TagDescription: dt.Tag.Description,
-                AddedAt: dt.CreatedAt,
-                AddedBy: dt.CreatedBy
+                TagName: dt.TagName,
+                TagDescription: dt.TagDescription,
+                AddedAt: dt.AddedAt,
+                AddedBy: dt.AddedBy
             )).ToList();
 
             return Results.Ok(response);
@@ -274,39 +250,35 @@ public static class TagEndpoints
     }
 
     private static async Task<IResult> GetDocumentsByTag(
+        [FromServices] IMediator mediator,
         Guid tagId,
         CancellationToken cancellationToken)
     {
         try
         {
-            // Validate tag exists
-            var tagExists = await Tag.Exists(tagId, cancellationToken);
-            if (!tagExists)
-            {
-                return Results.NotFound(new ErrorResponse(
-                    Message: $"Tag with ID '{tagId}' not found",
-                    StatusCode: StatusCodes.Status404NotFound
-                ));
-            }
+            var query = new GetDocumentsByTagQuery(tagId);
+            var documents = await mediator.Send(query, cancellationToken);
 
-            var documentTags = await DocumentTag.GetByTag(tagId, cancellationToken);
-            var documentIds = documentTags.Select(dt => dt.DocumentId).Distinct().ToList();
-
-            // In production, this would call the Document module to get document details
-            // For now, return just the document IDs
-            var response = documentIds.Select(docId => new DocumentResponse(
-                Id: docId,
-                Title: "Document Title", // Placeholder - would come from Document module
-                Description: null,
-                FileName: "file.pdf",
-                FileSizeInBytes: 0,
-                ContentType: "application/pdf",
-                CreatedAt: DateTime.UtcNow,
-                CreatedBy: "system",
-                Status: "Active"
+            var response = documents.Select(d => new DocumentResponse(
+                Id: d.Id,
+                Title: d.Title,
+                Description: d.Description,
+                FileName: d.FileName,
+                FileSizeInBytes: d.FileSizeInBytes,
+                ContentType: d.ContentType,
+                CreatedAt: d.CreatedAt,
+                CreatedBy: d.CreatedBy,
+                Status: d.Status
             )).ToList();
 
             return Results.Ok(response);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.NotFound(new ErrorResponse(
+                Message: ex.Message,
+                StatusCode: StatusCodes.Status404NotFound
+            ));
         }
         catch (Exception ex)
         {
@@ -319,6 +291,7 @@ public static class TagEndpoints
     }
 
     private static async Task<IResult> GetDocumentsByTags(
+        [FromServices] IMediator mediator,
         [FromQuery] string tagIds,
         CancellationToken cancellationToken)
     {
@@ -347,27 +320,19 @@ public static class TagEndpoints
                 ));
             }
 
-            // Get all document-tag associations for the specified tags
-            var documentTags = await DocumentTag.GetByTags(tagIdList, cancellationToken);
+            var query = new GetDocumentsByTagsQuery(tagIdList);
+            var documents = await mediator.Send(query, cancellationToken);
 
-            // Group by document ID and filter for documents that have ALL specified tags
-            var documentIdsWithAllTags = documentTags
-                .GroupBy(dt => dt.DocumentId)
-                .Where(g => g.Select(dt => dt.TagId).Distinct().Count() == tagIdList.Count)
-                .Select(g => g.Key)
-                .ToList();
-
-            // In production, this would call the Document module to get document details
-            var response = documentIdsWithAllTags.Select(docId => new DocumentResponse(
-                Id: docId,
-                Title: "Document Title",
-                Description: null,
-                FileName: "file.pdf",
-                FileSizeInBytes: 0,
-                ContentType: "application/pdf",
-                CreatedAt: DateTime.UtcNow,
-                CreatedBy: "system",
-                Status: "Active"
+            var response = documents.Select(d => new DocumentResponse(
+                Id: d.Id,
+                Title: d.Title,
+                Description: d.Description,
+                FileName: d.FileName,
+                FileSizeInBytes: d.FileSizeInBytes,
+                ContentType: d.ContentType,
+                CreatedAt: d.CreatedAt,
+                CreatedBy: d.CreatedBy,
+                Status: d.Status
             )).ToList();
 
             return Results.Ok(response);
