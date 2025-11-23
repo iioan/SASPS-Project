@@ -1,7 +1,5 @@
 using MetadataIndexing.Infrastructure.Data;
 using MetadataIndexing.Domain.Common;
-using MetadataIndexing.Domain.Services;
-using MetadataIndexing.Infrastructure.Services;
 using MetadataIndexing.Infrastructure.EventHandlers;
 using MetadataIndexing.API.Endpoints;
 using Microsoft.EntityFrameworkCore;
@@ -16,9 +14,6 @@ builder.Services.AddSwaggerGen();
 // Register DbContext
 builder.Services.AddDbContext<MetadataIndexingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("MetadataIndexingDb")));
-
-// Register services
-builder.Services.AddScoped<IDocumentSearchService, DocumentSearchService>();
 
 // Register event infrastructure
 builder.Services.AddSingleton<IEventPublisher, InMemoryEventPublisher>();
