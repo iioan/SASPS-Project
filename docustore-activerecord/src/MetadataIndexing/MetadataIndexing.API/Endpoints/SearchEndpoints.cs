@@ -1,5 +1,6 @@
 using MediatR;
 using MetadataIndexing.API.Models;
+using MetadataIndexing.Application.Commands.ReindexDocuments;
 using MetadataIndexing.Application.Queries.SearchDocuments;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Models;
@@ -20,6 +21,14 @@ public static class SearchEndpoints
             .WithName("SearchDocuments")
             .WithSummary("Search documents")
             .WithDescription("Search documents by keyword, date range, creator with pagination and sorting");
+
+        // Reindex all documents (admin endpoint)
+        group.MapPost("/reindex", ReindexDocuments)
+            .Produces<object>(StatusCodes.Status200OK)
+            .Produces<ErrorResponse>(StatusCodes.Status500InternalServerError)
+            .WithName("ReindexDocuments")
+            .WithSummary("Reindex all documents")
+            .WithDescription("Manually trigger re-indexing of all documents in the search index");
 
         return endpoints;
     }
@@ -86,6 +95,31 @@ public static class SearchEndpoints
                 detail: ex.Message,
                 statusCode: StatusCodes.Status500InternalServerError,
                 title: "An error occurred while searching documents"
+            );
+        }
+    }
+
+    private static async Task<IResult> ReindexDocuments(
+        [FromServices] IMediator mediator,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var command = new ReindexDocumentsCommand();
+            var count = await mediator.Send(command, cancellationToken);
+
+            return Results.Ok(new
+            {
+                Message = $"Successfully re-indexed {count} documents",
+                IndexedCount = count
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "An error occurred while re-indexing documents"
             );
         }
     }
