@@ -30,8 +30,8 @@ public class DocumentCreatedEventHandler : IEventHandler<DocumentCreatedEvent>
             // Create search index entry
             var searchIndex = SearchDocumentIndex.Create(
                 documentId: @event.DocumentId,
-                title: "Document", // Default title - should be provided in event
-                description: null,
+                title: @event.Title,
+                description: @event.Description,
                 fileName: @event.FileName,
                 contentType: @event.ContentType,
                 fileSizeInBytes: @event.FileContent.Length,
