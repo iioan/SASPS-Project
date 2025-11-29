@@ -1,5 +1,3 @@
-using Document.Application.Interfaces;
-using Document.Domain.Enums;
 using MediatR;
 using Versioning.Application.DTOs;
 using Versioning.Application.Interfaces;
@@ -11,24 +9,24 @@ namespace Versioning.Application.Commands.CreateVersion;
 public class CreateVersionCommandHandler : IRequestHandler<CreateVersionCommand, VersionDto>
 {
     private readonly IVersioningUnitOfWork _unitOfWork;
-    private readonly IDocumentRepository _documentRepository;
+    private readonly IDocumentQueryService _documentQueryService;
     private readonly IFileStorageService _fileStorageService;
 
     public CreateVersionCommandHandler(
         IVersioningUnitOfWork unitOfWork,
-        IDocumentRepository documentRepository,
+        IDocumentQueryService documentQueryService,
         IFileStorageService fileStorageService)
     {
         _unitOfWork = unitOfWork;
-        _documentRepository = documentRepository;
+        _documentQueryService = documentQueryService;
         _fileStorageService = fileStorageService;
     }
 
     public async Task<VersionDto> Handle(CreateVersionCommand request, CancellationToken cancellationToken)
     {
         // Check if document exists and is active
-        var document = await _documentRepository.GetByIdAsync(request.DocumentId, cancellationToken);
-        if (document == null || document.Status != DocumentStatus.Active)
+        var isDocumentActive = await _documentQueryService.IsDocumentActiveAsync(request.DocumentId, cancellationToken);
+        if (!isDocumentActive)
         {
             throw new InvalidOperationException(
                 $"Cannot add version. Document with ID '{request.DocumentId}' not found or is deleted");

@@ -2,24 +2,20 @@ using Document.Application.DTOs;
 using Document.Application.Interfaces;
 using Document.Domain.Enums;
 using MediatR;
-using Versioning.Application.Interfaces;
 
 namespace Document.Application.Queries.DownloadDocument;
 
 public class DownloadDocumentQueryHandler : IRequestHandler<DownloadDocumentQuery, DocumentDownloadDto?>
 {
     private readonly IDocumentRepository _documentRepository;
-    private readonly IVersionRepository _versionRepository;
-    private readonly Versioning.Domain.Services.IFileStorageService _fileStorageService;
+    private readonly IVersionQueryService _versionQueryService;
 
     public DownloadDocumentQueryHandler(
         IDocumentRepository documentRepository,
-        IVersionRepository versionRepository,
-        Versioning.Domain.Services.IFileStorageService fileStorageService)
+        IVersionQueryService versionQueryService)
     {
         _documentRepository = documentRepository;
-        _versionRepository = versionRepository;
-        _fileStorageService = fileStorageService;
+        _versionQueryService = versionQueryService;
     }
 
     public async Task<DocumentDownloadDto?> Handle(
@@ -31,12 +27,12 @@ public class DownloadDocumentQueryHandler : IRequestHandler<DownloadDocumentQuer
         if (document == null || document.Status != DocumentStatus.Active)
             return null;
 
-        var currentVersion = await _versionRepository.GetCurrentVersionAsync(request.DocumentId, cancellationToken);
+        var currentVersion = await _versionQueryService.GetCurrentVersionAsync(request.DocumentId, cancellationToken);
 
         if (currentVersion == null)
             return null;
 
-        var fileContent = await _fileStorageService.GetVersionFileAsync(
+        var fileContent = await _versionQueryService.GetVersionFileAsync(
             currentVersion.DocumentId,
             currentVersion.VersionNumber,
             cancellationToken);

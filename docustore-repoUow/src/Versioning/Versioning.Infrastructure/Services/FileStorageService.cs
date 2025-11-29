@@ -98,6 +98,34 @@ public class FileStorageService : IFileStorageService
         }
     }
 
+    public async Task<int?> GetCurrentVersionNumberAsync(
+        Guid documentId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var documentFolder = GetDocumentFolder(documentId);
+            if (documentFolder == null)
+            {
+                return null;
+            }
+
+            var markerFilePath = Path.Combine(documentFolder, ".current_version");
+            if (!File.Exists(markerFilePath))
+            {
+                return null;
+            }
+
+            var content = await File.ReadAllTextAsync(markerFilePath, cancellationToken);
+            return int.TryParse(content, out var version) ? version : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading current version marker for document {DocumentId}", documentId);
+            return null;
+        }
+    }
+
     private string? GetDocumentFolder(Guid documentId)
     {
         var folders = Directory.GetDirectories(_storageBasePath, $"{documentId}_*");

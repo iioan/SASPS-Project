@@ -6,6 +6,7 @@ using Document.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Versioning.Application.Interfaces;
 
 namespace Document.Infrastructure;
 
@@ -29,6 +30,9 @@ public static class DependencyInjection
 
         // Register services
         services.AddSingleton<IFileStorageService, FileStorageService>();
+        
+        // Register cross-module service for Versioning module
+        services.AddScoped<IDocumentQueryService, DocumentQueryService>();
 
         return services;
     }

@@ -3,7 +3,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Document.Domain\Document.Domain.csproj" />
     <ProjectReference Include="..\..\Versioning\Versioning.Domain\Versioning.Domain.csproj" />
-    <ProjectReference Include="..\..\Versioning\Versioning.Application\Versioning.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

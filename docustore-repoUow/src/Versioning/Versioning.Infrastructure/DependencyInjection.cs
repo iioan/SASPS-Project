@@ -1,3 +1,4 @@
+using Document.Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,9 @@ public static class DependencyInjection
 
         // Register services
         services.AddSingleton<IFileStorageService, FileStorageService>();
+        
+        // Register cross-module service for Document module
+        services.AddScoped<IVersionQueryService, VersionQueryService>();
 
         return services;
     }
