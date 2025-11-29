@@ -3,6 +3,7 @@ using Document.Application.Commands;
 using Document.Application.Commands.CreateDocument;
 using Document.Application.Commands.DeleteDocument;
 using Document.Application.Commands.UpdateDocument;
+using Document.Application.Queries.DownloadDocument;
 using Document.Application.Queries.GetDocument;
 using Document.Application.Queries.ListDocuments;
 using MediatR;
@@ -56,6 +57,13 @@ public static class DocumentEndpoints
             .WithName("DeleteDocument")
             .WithSummary("Soft delete a document")
             .WithDescription("Mark a document as deleted. The document will no longer appear in normal lists but can still be retrieved by ID for audit purposes.");
+
+        group.MapGet("/{id:guid}/download", DownloadDocument)
+            .Produces<FileResult>(StatusCodes.Status200OK)
+            .Produces<ErrorResponse>(StatusCodes.Status404NotFound)
+            .WithName("DownloadDocument")
+            .WithSummary("Download the current version of a document")
+            .WithDescription("Retrieve and download the current version of a document by its ID. Tracks the current version from the versioning module.");
 
         return endpoints;
     }
@@ -303,6 +311,40 @@ public static class DocumentEndpoints
                 detail: ex.Message,
                 statusCode: StatusCodes.Status500InternalServerError,
                 title: "An error occurred while deleting the document"
+            );
+        }
+    }
+
+    private static async Task<IResult> DownloadDocument(
+        Guid id,
+        [FromServices] IMediator mediator,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var query = new DownloadDocumentQuery(id);
+            var result = await mediator.Send(query, cancellationToken);
+
+            if (result == null)
+            {
+                return Results.NotFound(new ErrorResponse(
+                    Message: $"Document with ID '{id}' not found or has no current version",
+                    StatusCode: StatusCodes.Status404NotFound
+                ));
+            }
+
+            return Results.File(
+                fileContents: result.FileContent,
+                contentType: result.ContentType,
+                fileDownloadName: result.FileName
+            );
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(
+                detail: ex.Message,
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "An error occurred while downloading the document"
             );
         }
     }
